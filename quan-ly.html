@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Quản lý Công việc Đồng bộ</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        :root { --primary: #1a73e8; --bg: #f8f9fa; --text: #3c4043; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        h2 { text-align: center; color: var(--primary); margin-bottom: 25px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* Form nhập liệu */
+        .input-form { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; background: #f1f3f4; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+        input, select, textarea { padding: 12px; border: 1px solid #dadce0; border-radius: 6px; font-size: 14px; outline: none; }
+        input:focus, select:focus { border-color: var(--primary); }
+        textarea { grid-column: span 3; height: 60px; resize: none; }
+        .btn-submit { grid-column: span 3; background: var(--primary); color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-submit:hover { background: #1557b0; }
+
+        /* Bảng dữ liệu */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 15px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: #f8f9fa; color: #5f6368; font-size: 13px; text-transform: uppercase; }
+        tr:hover { background-color: #fcfcfc; }
+        
+        .status-badge { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--primary); background: #e8f0fe; color: var(--primary); cursor: pointer; font-weight: 500; }
+        .note-text { color: #70757a; font-size: 13px; line-height: 1.4; }
+        .btn-del { color: #d93025; border: none; background: none; cursor: pointer; font-weight: bold; padding: 5px 10px; }
+        .btn-del:hover { background: #fce8e6; border-radius: 4px; }
+        
+        @media (max-width: 600px) { .input-form { grid-template-columns: 1fr; } textarea, .btn-submit { grid-column: span 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Hệ thống Giao việc Nội bộ</h2>
+
+    <div class="input-form">
+        <input type="text" id="taskName" placeholder="Tên công việc (ví dụ: Chấm bài khối 2)...">
+        <input type="text" id="taskAssignee" placeholder="Người phụ trách...">
+        <select id="taskProgress">
+            <option value="0%">🔴 0% - Mới giao</option>
+            <option value="50%">🟡 50% - Đang làm</option>
+            <option value="100%">🟢 100% - Hoàn thành</option>
+        </select>
+        <textarea id="taskNote" placeholder="Ghi chú thêm (thời hạn, yêu cầu đặc biệt... )"></textarea>
+        <button class="btn-submit" onclick="addTask()">+ THÊM VÀO HỆ THỐNG</button>
+    </div>
+
+    <table id="taskTable">
+        <thead>
+            <tr>
+                <th style="width: 25%;">Công việc</th>
+                <th style="width: 20%;">Người nhận</th>
+                <th style="width: 15%;">Tiến độ</th>
+                <th style="width: 30%;">Ghi chú</th>
+                <th style="width: 10%;">Xóa</th>
+            </tr>
+        </thead>
+        <tbody id="taskBody">
+            <tr><td colspan="5" style="text-align:center; color:#999;">Đang tải dữ liệu...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // 1. CẤU HÌNH FIREBASE (Dán mã của bạn vào đây)
+    const firebaseConfig = {
+        apiKey: "AIzaSyBMGTJmJttHtNxTid8Y-rR9eBALLICr-7k",
+        authDomain: "manager-2349e.firebaseapp.com",
+        databaseURL: "https://manager-2349e-default-rtdb.asia-southeast1.firebasedatabase.app/", // tab Data Realtime Database
+        projectId: "manager-2349e",
+        storageBucket: "manager-2349e.firebasestorage.app",
+        messagingSenderId: "960177874955",
+        appId: "1:960177874955:web:46a94bec06d6d826dd3f0e",
+        measurementId: "G-4K63VTSBLJ"
+    };
+
+    // Khởi tạo Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 2. HÀM THÊM CÔNG VIỆC
+    function addTask() {
+        const name = document.getElementById('taskName').value;
+        const assignee = document.getElementById('taskAssignee').value;
+        const progress = document.getElementById('taskProgress').value;
+        const note = document.getElementById('taskNote').value;
+
+        if (!name || !assignee) {
+            alert("Vui lòng nhập tên việc và người nhận!");
+            return;
+        }
+
+        db.ref('tasks').push({
+            name: name,
+            assignee: assignee,
+            progress: progress,
+            note: note,
+            timestamp: Date.now()
+        });
+
+        // Xóa form sau khi gửi
+        document.getElementById('taskName').value = "";
+        document.getElementById('taskNote').value = "";
+    }
+
+    // 3. LẮNG NGHE DỮ LIỆU THAY ĐỔI (REALTIME)
+    db.ref('tasks').on('value', (snapshot) => {
+        const data = snapshot.val();
+        const tbody = document.getElementById('taskBody');
+        tbody.innerHTML = "";
+
+        if (!data) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">Chưa có công việc nào được giao.</td></tr>';
+            return;
+        }
+
+        // Chuyển object thành array và hiển thị
+        Object.keys(data).reverse().forEach(id => {
+            const t = data[id];
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${t.name}</b></td>
+                    <td>${t.assignee}</td>
+                    <td>
+                        <select class="status-badge" onchange="updateProgress('${id}', this.value)">
+                            <option value="0%" ${t.progress === '0%' ? 'selected' : ''}>0%</option>
+                            <option value="50%" ${t.progress === '50%' ? 'selected' : ''}>50%</option>
+                            <option value="100%" ${t.progress === '100%' ? 'selected' : ''}>100%</option>
+                        </select>
+                    </td>
+                    <td class="note-text">${t.note || '-'}</td>
+                    <td><button class="btn-del" onclick="deleteTask('${id}')">Xóa</button></td>
+                </tr>
+            `;
+        });
+    });
+
+    // 4. CẬP NHẬT TIẾN ĐỘ
+    function updateProgress(id, newVal) {
+        db.ref('tasks/' + id).update({ progress: newVal });
+    }
+
+    // 5. XÓA CÔNG VIỆC
+    function deleteTask(id) {
+        if (confirm("Bạn có chắc chắn muốn xóa công việc này không?")) {
+            db.ref('tasks/' + id).remove();
+        }
+    }
+</script>
+
+</body>
+</html>
